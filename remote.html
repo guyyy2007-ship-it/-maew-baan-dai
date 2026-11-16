@@ -1,0 +1,91 @@
+<title>รีโมตแมวบ้านใด</title>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;600&family=Sriracha&display=swap" rel="stylesheet">
+<style>
+/* Layout: one column phone remote. Name box on top, recent names, gift buttons grid, reset at the bottom. */
+:root{--bg:#1d1233;--card:#2a1c47;--line:#ffffff26;--text:#fff6fb;--muted:#c9b8dd;--pink:#ff6fb5;--gold:#ffd24a;--ok:#5fe39a;--warn:#ff5a6e;
+  --display:'Sriracha','Mitr',cursive;--body:'Mitr',system-ui,sans-serif;color-scheme:dark}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);-webkit-tap-highlight-color:transparent}
+main{max-width:520px;margin:0 auto;padding-block:16px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+h1{font-family:var(--display);font-weight:400;color:var(--gold);margin:0;font-size:24px}
+.st{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--warn);flex:none}
+.dot.on{background:var(--ok)}
+.name{display:flex;gap:8px}
+input{font:inherit;font-size:18px;flex:1;min-width:0;background:#00000040;border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px}
+input:focus-visible,button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;min-height:34px}
+.chip{font:inherit;font-size:14px;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+.chip.sel{background:var(--pink);border-color:var(--pink);color:#2a0016}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.g{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:76px;justify-content:center}
+.g b{font-size:18px;font-weight:600}
+.g small{font-size:12.5px;color:var(--muted)}
+.g.cm{grid-column:1/-1;background:#ff6fb52a;border-color:#ff6fb588}
+.g:active{transform:scale(.97)}
+.row{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.cnt{display:flex;gap:6px}
+.cnt button{font:inherit;width:46px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text)}
+.cnt button.sel{background:var(--gold);color:#2a1a00;border-color:var(--gold)}
+.reset{font:inherit;color:var(--text);background:#ff5a6e22;border:1px solid #ff5a6e88;border-radius:12px;padding:12px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#000c;color:#fff;padding:8px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.pin{display:flex;gap:8px}
+.pin[hidden]{display:none}
+.note{font-size:12.5px;color:var(--muted);margin:0;line-height:1.5}
+</style>
+<main>
+  <h1>รีโมตแมวบ้านใด</h1>
+  <div class="st"><span class="dot" id="dot"></span><span id="st">กำลังเชื่อมต่อ...</span></div>
+  <div class="pin" id="pinRow" hidden><input id="pin" inputmode="numeric" placeholder="รหัส PIN" autocomplete="off"><button class="chip" id="pinGo">เข้า</button></div>
+
+  <div class="name"><input id="nm" placeholder="ชื่อคนดู (ตามที่เห็นในไลฟ์)" maxlength="24" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+  <div class="chips" id="recent"></div>
+
+  <div class="grid">
+    <button class="g cm" data-t="comment"><b>💬 คอมเมนต์ / เข้าลาน</b><small>ให้แมวของคนนี้เข้าลาน</small></button>
+    <button class="g" data-t="gift" data-gift="Rose" data-coins="1"><b>🌹 กุหลาบ</b><small>พลุ</small></button>
+    <button class="g" data-t="gift" data-gift="Heart Me" data-coins="1"><b>❤️ หัวใจ</b><small>ตีลังกา</small></button>
+    <button class="g" data-t="gift" data-gift="Finger Heart" data-coins="5"><b>🤏 มินิฮาร์ต</b><small>มาลัยเงิน</small></button>
+    <button class="g" data-t="gift" data-gift="10" data-coins="10"><b>10 เหรียญ</b><small>ไหว้ศาล</small></button>
+    <button class="g" data-t="gift" data-gift="15" data-coins="15"><b>15 เหรียญ</b><small>ขึ้นเวทีเต้น</small></button>
+    <button class="g" data-t="gift" data-gift="50" data-coins="50"><b>50 เหรียญ</b><small>ศึกนัวเหมียว</small></button>
+    <button class="g" data-t="gift" data-gift="100" data-coins="100"><b>100 เหรียญ</b><small>ขึ้นรถแห่</small></button>
+  </div>
+  <div class="row">จำนวนของขวัญ<div class="cnt" id="cnt"><button class="sel" data-n="1">x1</button><button data-n="5">x5</button><button data-n="10">x10</button></div></div>
+  <p class="note">ของขวัญอื่นๆ ให้กดปุ่มตามราคาเหรียญที่ใกล้ที่สุด (ต่ำกว่าหรือเท่ากัน) เช่น ของขวัญ 30 เหรียญ ให้กด 15 เหรียญ ยอดในจออันดับจะนับตามปุ่มที่กด</p>
+  <button class="reset" id="reset">ล้างลานในเกม (เริ่มไลฟ์ใหม่)</button>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+let ws=null,count=1,recent=[];
+try{recent=JSON.parse(localStorage.getItem('maew.recent')||'[]');}catch(e){}
+let pin='';try{pin=localStorage.getItem('maew.pin')||'';}catch(e){}
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),1300);}
+function setSt(on,t){$('dot').classList.toggle('on',on);$('st').textContent=t;}
+function renderRecent(){const box=$('recent');box.innerHTML='';const cur=$('nm').value.trim();
+  recent.slice(0,12).forEach(n=>{const b=document.createElement('button');b.className='chip'+(n===cur?' sel':'');b.textContent=n;b.onclick=()=>{$('nm').value=n;renderRecent();};box.appendChild(b);});}
+function remember(n){recent=[n,...recent.filter(x=>x!==n)].slice(0,20);try{localStorage.setItem('maew.recent',JSON.stringify(recent));}catch(e){}renderRecent();}
+function connect(){
+  const url=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws?role=remote'+(pin?'&pin='+encodeURIComponent(pin):'');
+  ws=new WebSocket(url);setSt(false,'กำลังเชื่อมต่อ...');
+  ws.onmessage=m=>{let d;try{d=JSON.parse(m.data);}catch(e){return;}
+    if(d.error==='pin'){$('pinRow').hidden=false;setSt(false,'ใส่รหัส PIN ที่ตั้งไว้ใน Render');ws.onclose=null;return;}
+    if(d.type==='remoteStatus'){$('pinRow').hidden=true;setSt(d.games>0,d.games>0?`เชื่อมแล้ว · หน้าเกมเปิดอยู่ ${d.games} จอ`:'เชื่อมแล้ว แต่ยังไม่มีหน้าเกมเปิด (เปิดเกมบนเครื่องที่ไลฟ์)');}};
+  ws.onclose=()=>{setSt(false,'หลุดการเชื่อมต่อ กำลังลองใหม่...');setTimeout(connect,2500);};
+}
+$('pinGo').onclick=()=>{pin=$('pin').value.trim();try{localStorage.setItem('maew.pin',pin);}catch(e){}connect();};
+function sendEv(o){if(!ws||ws.readyState!==1){toast('ยังไม่เชื่อมต่อ');return false;}ws.send(JSON.stringify(o));return true;}
+document.querySelectorAll('.g').forEach(b=>b.addEventListener('click',()=>{
+  const n=$('nm').value.trim();if(!n){toast('พิมพ์ชื่อคนดูก่อน');$('nm').focus();return;}
+  const o=b.dataset.t==='comment'?{type:'comment',name:n}:{type:'gift',name:n,gift:b.dataset.gift,coins:+b.dataset.coins,count};
+  if(sendEv(o)){remember(n);toast('ส่งแล้ว: '+b.querySelector('b').textContent+(o.type==='gift'&&count>1?' x'+count:''));if(navigator.vibrate)navigator.vibrate(15);}
+}));
+document.querySelectorAll('#cnt button').forEach(b=>b.onclick=()=>{count=+b.dataset.n;document.querySelectorAll('#cnt button').forEach(x=>x.classList.toggle('sel',x===b));});
+let armed=0;$('reset').onclick=()=>{if(Date.now()-armed>3000){armed=Date.now();$('reset').textContent='แตะอีกครั้งเพื่อยืนยันล้างลาน';setTimeout(()=>{$('reset').textContent='ล้างลานในเกม (เริ่มไลฟ์ใหม่)';},3000);return;}
+  armed=0;$('reset').textContent='ล้างลานในเกม (เริ่มไลฟ์ใหม่)';if(sendEv({type:'reset'}))toast('ล้างลานแล้ว');};
+$('nm').addEventListener('input',renderRecent);
+renderRecent();connect();
+})();
+</script>

@@ -97,6 +97,11 @@ input[type=range]{flex:1;min-width:120px;accent-color:var(--pink)}
     <div class="row"><label for="chanName">ชื่อช่อง TikTok</label></div>
     <div class="row"><input type="text" id="chanName" placeholder="ชื่อช่อง ไม่ต้องมี @ (ว่าง = ใช้ค่าใน Render)" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="60"><button class="btn" id="chanGo" style="flex-direction:row;padding:8px 14px">ใช้ช่องนี้</button></div>
     <p class="note" id="wsStatus">ยังไม่ได้เชื่อมต่อ</p>
+    <div class="row"><label for="srcMode">แหล่งข้อมูล</label><select id="srcMode" style="font:inherit;font-size:14px;flex:1;min-width:0;background:#00000040;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px">
+      <option value="remote">รีโมตกดเอง (ถูกกฎ แนะนำ)</option>
+      <option value="tikfinity">TikFinity บนคอม</option>
+      <option value="auto">อัตโนมัติ (Euler Business)</option></select></div>
+    <p class="note" id="srcNote"></p>
     <div class="row" id="wsRow"><input type="text" id="wsUrl" placeholder="wss://เซิร์ฟเวอร์ของคุณ/ws" autocomplete="off"><button class="btn" id="wsGo" style="flex-direction:row;padding:8px 14px">เชื่อมต่อ</button></div>
     <p class="note" id="connNote">หน้านี้เปิดจาก claude.ai จึงต่อไลฟ์จริงไม่ได้ ใช้ลิงก์เกมจากเซิร์ฟเวอร์ Render ของคุณตอนไลฟ์</p>
   </div>
@@ -642,6 +647,7 @@ function finishMelee(){
 
 // ---------------- events in ----------------
 function ingest(ev){
+  if(ev&&ev.type==='reset'){clearAll();return;}
   if(ev&&ev.type==='status'){const el=$('wsStatus');if(el)el.textContent=ev.message||ev.state;liveState=ev.state;return;}
   if(!ev||!ev.user||!ev.user.id)return;
   const u=user(ev.user);
@@ -863,10 +869,48 @@ function connect(url){
 $('chanGo').addEventListener('click',()=>{
   chanVal=cleanChan($('chanName').value);$('chanName').value=chanVal;try{localStorage.setItem('maew.chan',chanVal);}catch(e){}
   firstOpen=true;
-  if(window.MAEW_WS)connect(withChan(window.MAEW_WS));
+  if(window.MAEW_WS&&srcMode==='auto')connect(withChan(window.MAEW_WS));
+  else if(window.MAEW_WS){$('wsStatus').textContent='บันทึกชื่อช่องแล้ว ชื่อช่องใช้กับแหล่งข้อมูลแบบอัตโนมัติเท่านั้น';}
   else{const u=$('wsUrl').value.trim();if(u)connect(withChan(u));else $('wsStatus').textContent='บันทึกชื่อช่องแล้ว จะใช้ตอนเปิดเกมจากเซิร์ฟเวอร์ Render';}
 });
 $('wsGo').addEventListener('click',()=>{const u=$('wsUrl').value.trim();if(u){try{localStorage.setItem('maew.ws',u);}catch(e){}connect(withChan(u));}});
+// ---- TikFinity mode: read events from the TikFinity app on the same computer ----
+let tfSock=null,tfOn=false;
+const tfUser=d=>({id:String(d.userId||d.uniqueId||d.nickname||''),name:String(d.nickname||d.uniqueId||'คนดู').slice(0,24),avatar:typeof d.profilePictureUrl==='string'?d.profilePictureUrl:''});
+function tfEvent(msg){
+  const ev=msg&&msg.event, d=(msg&&msg.data)||{};
+  if(ev==='chat'){const u=tfUser(d);if(u.id)ingest({type:'comment',user:u});}
+  else if(ev==='gift'){
+    if(d.giftType===1&&!d.repeatEnd)return;               // streak still running; wait for the final count
+    const u=tfUser(d);if(!u.id)return;
+    ingest({type:'gift',user:u,gift:{id:d.giftId,name:d.giftName||'',coins:Number(d.diamondCount)||0,count:Math.max(1,Number(d.repeatCount)||1)}});
+  }
+  else if(ev==='streamEnd'){$('wsStatus').textContent='TikFinity: ไลฟ์จบแล้ว';}
+}
+function tfConnect(){
+  tfOn=true;
+  if(ws){ws.onclose=null;try{ws.close();}catch(e){}ws=null;}
+  if(tfSock){tfSock.onclose=null;try{tfSock.close();}catch(e){}}
+  let s;try{s=new WebSocket('ws://localhost:21213/');}catch(e){$('wsStatus').textContent='TikFinity: เชื่อมไม่ได้';return;}
+  tfSock=s;$('wsStatus').textContent='TikFinity: กำลังเชื่อมต่อโปรแกรม TikFinity ในคอม...';
+  s.onopen=()=>{$('wsStatus').textContent='TikFinity: เชื่อมต่อแล้ว รับคอมเมนต์และของขวัญจากไลฟ์';if(firstOpen){firstOpen=false;clearAll();}};
+  s.onmessage=m=>{try{tfEvent(JSON.parse(m.data));}catch(e){}};
+  s.onclose=()=>{if(tfSock!==s||!tfOn)return;$('wsStatus').textContent='TikFinity: ยังไม่เจอโปรแกรม TikFinity (เปิดโปรแกรมและเชื่อมบัญชี TikTok ไว้หรือยัง) ลองใหม่ใน 3 วินาที';setTimeout(()=>{if(tfSock===s&&tfOn)tfConnect();},3000);};
+}
+function tfOff(){tfOn=false;if(tfSock){tfSock.onclose=null;try{tfSock.close();}catch(e){}tfSock=null;}}
+const SRC_NOTE={remote:'เปิด /remote บนมือถือเครื่องที่ 2 (ลิงก์เดียวกัน เติม /remote ท้าย) แล้วกดตามคอมเมนต์และของขวัญที่เห็นในไลฟ์',
+  tikfinity:'ใช้บนคอมที่เปิดโปรแกรม TikFinity ไว้ เกมรับคอมเมนต์และของขวัญจาก TikFinity โดยตรง',
+  auto:'ต่อไลฟ์อัตโนมัติผ่านเซิร์ฟเวอร์ ต้องมี SIGN_API_KEY แผน Business ของ Euler Stream และใส่ชื่อช่องด้านบน'};
+let srcMode='remote';try{srcMode=localStorage.getItem('maew.mode')||'remote';}catch(e){}
+if(location.hash==='#tikfinity')srcMode='tikfinity';if(location.hash==='#remote')srcMode='remote';
+function startSource(){
+  $('srcMode').value=srcMode;$('srcNote').textContent=SRC_NOTE[srcMode]||'';
+  tfOff();if(ws){ws.onclose=null;try{ws.close();}catch(e){}ws=null;}
+  if(srcMode==='tikfinity'){tfConnect();return;}
+  if(!window.MAEW_WS){$('wsStatus').textContent='หน้านี้เปิดจาก claude.ai ใช้ได้แค่โหมดทดลอง ตอนไลฟ์ให้เปิดลิงก์เกมจาก Render';return;}
+  if(srcMode==='remote')connect(window.MAEW_WS+'?mode=manual');else connect(withChan(window.MAEW_WS));
+}
+$('srcMode').addEventListener('change',e=>{srcMode=e.target.value;try{localStorage.setItem('maew.mode',srcMode);}catch(x){}firstOpen=true;startSource();});
 let autoWs='';try{autoWs=localStorage.getItem('maew.ws')||'';}catch(e){}
 if(autoWs)$('wsUrl').value=autoWs;
 if(window.MAEW_WS){$('wsRow').hidden=true;$('connNote').hidden=true;}
@@ -879,8 +923,9 @@ document.addEventListener('pointerdown',wakeGear);wakeGear();
 
 // ---------------- boot ----------------
 function boot(){
-  if(window.MAEW_WS){demoMode=false;connect(withChan(window.MAEW_WS));}
+  if(window.MAEW_WS||srcMode==='tikfinity'){demoMode=false;startSource();}
   else{ // practice view: sample viewers so the scene is alive on first open
+    $('srcMode').value=srcMode;$('srcNote').textContent=SRC_NOTE[srcMode];
     $('demoBadge').hidden=false;$('autoDemo').checked=true;
     for(let i=0;i<16;i++){const u=newSimUser();const c=enterYard(user(u),false);if(c){const[x,y]=yardPoint();c.x=x;c.y=y;c.tx=x;c.ty=y;c.mode='idle';c.idleUntil=T()+R()*3;c.tagUntil=0;}}
     popQ.length=0;

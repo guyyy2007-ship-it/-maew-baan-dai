@@ -23,6 +23,10 @@ const page = `<!doctype html><html lang="th"><head><meta charset="utf-8">
 </head><body>${body}</body></html>`;
 const app = express();
 app.get('/', (_req, res) => res.type('html').send(page));
+const remotePage = `<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1d1233">
+</head><body>${readFileSync(join(here, 'remote.html'), 'utf8')}</body></html>`;
+app.get('/remote', (_req, res) => res.type('html').send(remotePage));
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 app.get('/status', (_req, res) => res.json([...rooms.values()].map(r => ({ channel: r.name, state: r.state, message: r.message, pages: r.clients.size }))));
 const server = http.createServer(app);
@@ -63,8 +67,43 @@ async function closeRoom(room) {
   try { if (room.conn) await room.conn.disconnect(); } catch {}
   console.log(`[@${room.name}] closed (no game pages open)`);
 }
+// ---------- manual (remote control) room: no TikTok connection, events come from /remote ----------
+const REMOTE_PIN = String(process.env.REMOTE_PIN || '').trim();
+const manual = { games: new Set(), remotes: new Set() };
+function manualStatus() {
+  const msg = { type: 'status', state: manual.remotes.size ? 'live' : 'waiting',
+    message: manual.remotes.size ? `โหมดรีโมต: รีโมตเชื่อมอยู่ ${manual.remotes.size} เครื่อง` : 'โหมดรีโมต: รอรีโมตเชื่อมต่อ (เปิด /remote บนเครื่องที่ 2)' };
+  for (const g of manual.games) send(g, msg);
+  for (const r of manual.remotes) send(r, { type: 'remoteStatus', games: manual.games.size });
+}
+const cleanText = (v, n) => String(v ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, n);
+export function remoteEvent(raw) {
+  let m; try { m = JSON.parse(raw); } catch { return null; }
+  if (m?.type === 'reset') return { type: 'reset' };
+  const name = cleanText(m?.name, 24); if (!name) return null;
+  const user = { id: 'm_' + name.toLowerCase(), name, avatar: '' };
+  if (m.type === 'comment') return { type: 'comment', user };
+  if (m.type === 'gift') {
+    const coins = Math.max(0, Math.min(100000, Number(m.coins) || 0));
+    const count = Math.max(1, Math.min(99, Number(m.count) || 1));
+    return { type: 'gift', user, gift: { name: cleanText(m.gift, 30), coins, count } };
+  }
+  return null;
+}
 wss.on('connection', (ws, req) => {
   const q = new URL(req.url, 'http://local').searchParams;
+  if (q.get('role') === 'remote') {
+    if (REMOTE_PIN && q.get('pin') !== REMOTE_PIN) { send(ws, { type: 'remoteStatus', error: 'pin' }); ws.close(); return; }
+    manual.remotes.add(ws); manualStatus();
+    ws.on('message', raw => { const ev = remoteEvent(String(raw)); if (ev) for (const g of manual.games) send(g, ev); });
+    ws.on('close', () => { manual.remotes.delete(ws); manualStatus(); });
+    return;
+  }
+  if (q.get('mode') === 'manual') {
+    manual.games.add(ws); manualStatus();
+    ws.on('close', () => { manual.games.delete(ws); manualStatus(); });
+    return;
+  }
   const name = cleanName(q.get('u')) || USERNAME.toLowerCase();
   if (!name) { send(ws, { type: 'status', state: 'no-username', message: 'ยังไม่ได้ใส่ชื่อช่อง พิมพ์ชื่อช่อง TikTok ในแผงควบคุม' }); return; }
   const room = getRoom(name);
