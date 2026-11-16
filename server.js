@@ -19,7 +19,7 @@ const body = readFileSync(join(here, 'index.html'), 'utf8').replace(
 );
 const page = `<!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#120a2e">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="แมวบ้านใด"><link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#120a2e">
 </head><body>${body}</body></html>`;
 const app = express();
 app.get('/', (_req, res) => res.type('html').send(page));
@@ -27,6 +27,9 @@ const remotePage = `<!doctype html><html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1d1233">
 </head><body>${readFileSync(join(here, 'remote.html'), 'utf8')}</body></html>`;
 app.get('/remote', (_req, res) => res.type('html').send(remotePage));
+app.get('/manifest.webmanifest', (_req, res) => res.type('application/manifest+json').send(JSON.stringify({
+  name: 'แมวบ้านใด', short_name: 'แมวบ้านใด', start_url: '/', display: 'fullscreen', orientation: 'portrait',
+  background_color: '#120a2e', theme_color: '#120a2e' })));
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 app.get('/status', (_req, res) => res.json([...rooms.values()].map(r => ({ channel: r.name, state: r.state, message: r.message, pages: r.clients.size }))));
 const server = http.createServer(app);
