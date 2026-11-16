@@ -23,6 +23,7 @@ html,body{height:100%;margin:0;background:#120a2e;color:var(--text);font-family:
 #gear:focus-visible,.btn:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
 #demoBadge{position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(env(safe-area-inset-left,0px) + 54px);
   font-size:11px;padding:3px 9px;border-radius:999px;background:#ff8a1c;color:#2a1200;font-weight:600;z-index:5}
+#soundHint{position:fixed;top:calc(env(safe-area-inset-top,0px) + 54px);left:calc(env(safe-area-inset-left,0px) + 8px);font-size:11px;padding:4px 10px;border-radius:999px;background:#00000080;color:var(--text);border:1px solid var(--line);z-index:5;pointer-events:none}
 #panel{position:fixed;left:0;right:0;bottom:0;max-height:78vh;overflow:auto;z-index:6;background:var(--panel);
   border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -10px 40px #0009;
   padding-block:14px calc(18px + env(safe-area-inset-bottom,0px));
@@ -47,12 +48,14 @@ input[type=range]{flex:1;min-width:120px;accent-color:var(--pink)}
 .val{font-variant-numeric:tabular-nums;color:var(--gold);min-width:52px;text-align:right;font-size:13px}
 .note{font-size:12px;color:var(--muted);line-height:1.55;margin:0}
 .sw{display:flex;align-items:center;gap:8px;font-size:13px}
+[hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){ #panel{transition:none} .tag,.pop{transition:none} }
 </style>
 
 <div id="wrap"><svg id="game" viewBox="0 0 540 960" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="เกมลานแมว แมวบ้านใด"></svg></div>
 <button id="gear" aria-label="เปิดแผงควบคุม" title="แผงควบคุม">⚙</button>
 <div id="demoBadge" hidden>โหมดทดลอง</div>
+<div id="soundHint">แตะจอเพื่อเปิดเสียง</div>
 
 <section id="panel" aria-label="แผงควบคุม">
   <div class="ph"><h2>แผงควบคุม</h2><button class="btn" id="closePanel" style="flex-direction:row;padding:6px 14px;min-height:36px">ปิด</button></div>
@@ -79,6 +82,10 @@ input[type=range]{flex:1;min-width:120px;accent-color:var(--pink)}
 
   <div class="sec">
     <h3>ตั้งค่าเกม</h3>
+    <label class="sw"><input type="checkbox" id="musicOn"> เปิดเพลงพื้นหลัง</label>
+    <div class="row"><label for="musicVol">ความดังเพลง</label><input type="range" id="musicVol" min="0" max="100" step="5"><span class="val" id="musicVolV"></span></div>
+    <div class="row"><label for="sfxVol">ความดังเสียงเอฟเฟกต์</label><input type="range" id="sfxVol" min="0" max="100" step="5"><span class="val" id="sfxVolV"></span></div>
+    <p class="note">ถ้าไม่มีเสียง ให้แตะจอเกมหนึ่งครั้ง และเปิดเสียง iPhone ให้ดังพอ เพลงสร้างขึ้นใหม่ในเกม ไม่ติดลิขสิทธิ์</p>
     <div class="row"><label for="maxCats">แมวในลานสูงสุด</label><input type="range" id="maxCats" min="10" max="30" step="1"><span class="val" id="maxCatsV"></span></div>
     <div class="row"><label for="roundSec">เปลี่ยนรอบทุก</label><input type="range" id="roundSec" min="10" max="60" step="5"><span class="val" id="roundSecV"></span></div>
     <div class="row"><label for="meleeWait">ศึกนัว รอคนนานสุด</label><input type="range" id="meleeWait" min="1" max="10" step="1"><span class="val" id="meleeWaitV"></span></div>
@@ -234,7 +241,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const mk=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);if(attrs)for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;};
 
 // ---------------- config ----------------
-const CFG={maxCats:30,roundSec:20,meleeWaitMin:10,meleeMax:8,fightSec:30,stageSec:15,shrineSec:9,truckSec:20,garlandSec:30};
+const CFG={musicOn:true,musicVol:35,sfxVol:60,maxCats:30,roundSec:20,meleeWaitMin:10,meleeMax:8,fightSec:30,stageSec:15,shrineSec:9,truckSec:20,garlandSec:30};
 try{const s=JSON.parse(localStorage.getItem('maew.cfg')||'null');if(s)Object.assign(CFG,s);}catch(e){}
 const saveCfg=()=>{try{localStorage.setItem('maew.cfg',JSON.stringify(CFG));}catch(e){}};
 
@@ -281,6 +288,72 @@ function upperYardPoint(){for(let i=0;i<40;i++){const p=yardPoint();if(p[1]<SAFE
 function stagePoint(){const y=327+R()*19;const d=y-322;const xl=110-d+18,xr=430+d-18;return[xl+R()*(xr-xl),y];}
 const stageCount=()=>[...cats.values()].filter(c=>c.task&&c.task.type==='stage').length;
 function ringPoint(){const y=402+R()*54;const t=(y-374)/92;const xl=178+(142-178)*t+20,xr=362+(398-362)*t-20;return[xl+R()*(xr-xl),y];}
+
+// ---------------- sound: original synthesized music + effects (no recordings, no copyright issues) ----------------
+const AU={ctx:null,master:null,music:null,sfx:null,noise:null,next:0,step:0,loop:0,timer:null,last:{}};
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+const BPM=116, STEP=60/BPM/4;
+// 8 bars of melody (eighth notes, MIDI, 0 = rest) on the C pentatonic scale, like a ranat line
+const MEL=[[76,79,81,79,76,74,72,0],[74,76,79,76,74,72,74,0],[81,84,81,79,76,79,81,0],[79,76,74,76,79,0,74,0],
+           [76,79,81,84,81,79,76,79],[81,79,76,74,76,0,72,0],[81,79,76,79,81,84,86,0],[84,81,79,76,74,0,79,0]];
+const ROOT=[48,48,45,43,48,48,45,43];
+function auNode(type,o){const n=AU.ctx['create'+type]();if(o)for(const k in o){if(n[k]&&n[k].value!==undefined)n[k].value=o[k];else n[k]=o[k];}return n;}
+function env(g,t,peak,dec,att=.004){g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+att);g.gain.exponentialRampToValueAtTime(0.0001,t+att+dec);}
+function tone(dest,t,freq,dur,peak,type='sine',f2){const o=auNode('Oscillator');o.type=type;o.frequency.setValueAtTime(freq,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);const g=auNode('Gain');env(g,t,peak,dur);o.connect(g).connect(dest);o.start(t);o.stop(t+dur+.05);}
+function noise(dest,t,dur,peak,ftype,f,f2,q=1){const s=AU.ctx.createBufferSource();s.buffer=AU.noise;const fl=auNode('BiquadFilter');fl.type=ftype;fl.frequency.setValueAtTime(f,t);if(f2)fl.frequency.exponentialRampToValueAtTime(f2,t+dur);fl.Q.value=q;const g=auNode('Gain');env(g,t,peak,dur);s.connect(fl).connect(g).connect(dest);s.start(t,Math.random()*.5);s.stop(t+dur+.05);}
+// instruments
+const kick=t=>tone(AU.music,t,140,.22,.9,'sine',45);
+const chap=t=>noise(AU.music,t,.06,.22,'highpass',7000);
+const ching=t=>{tone(AU.music,t,2637,.28,.07,'triangle');tone(AU.music,t,3951,.22,.05,'triangle');};
+const bass=(t,m)=>tone(AU.music,t,mtof(m),.26,.32,'triangle');
+const ranat=(t,m,v=.24)=>{tone(AU.music,t,mtof(m),.38,v,'sine');tone(AU.music,t,mtof(m)*4,.08,v*.25,'sine');};
+function playStep(t,s){
+  const bar=Math.floor(s/16)%8, i=s%16;
+  if(i===0||i===8||(i===10&&bar%2))kick(t);
+  if(i===4||i===12)chap(t);
+  if(i%4===2)ching(t);
+  const r=ROOT[bar];
+  if(i===0)bass(t,r);else if(i===6)bass(t,r+7);else if(i===8)bass(t,r);else if(i===12)bass(t,r+12);
+  if(i%2===0){const m=MEL[bar][i/2];if(m)ranat(t,m+(AU.loop%4===3?-12:0));}
+  if(i===15&&bar===7)AU.loop++;
+}
+function sched(){if(!AU.ctx)return;while(AU.next<AU.ctx.currentTime+.12){if(CFG.musicOn)playStep(AU.next,AU.step);AU.step++;AU.next+=STEP;}}
+function applyVol(){if(!AU.ctx)return;const t=AU.ctx.currentTime;AU.music.gain.setTargetAtTime(CFG.musicOn?CFG.musicVol/100*.55:0,t,.1);AU.sfx.gain.setTargetAtTime(CFG.sfxVol/100*.8,t,.05);}
+let silentEl=null;
+function silentWav(){const n=800,b=new ArrayBuffer(44+n),v=new DataView(b);const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);for(let i=0;i<n;i++)v.setUint8(44+i,128);
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}));}
+function audioUnlock(){
+  try{
+    if(!AU.ctx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;AU.ctx=new AC();
+      const comp=AU.ctx.createDynamicsCompressor();comp.connect(AU.ctx.destination);
+      AU.master=AU.ctx.createGain();AU.master.connect(comp);AU.music=AU.ctx.createGain();AU.music.connect(AU.master);AU.sfx=AU.ctx.createGain();AU.sfx.connect(AU.master);
+      const len=AU.ctx.sampleRate;AU.noise=AU.ctx.createBuffer(1,len,AU.ctx.sampleRate);const d=AU.noise.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+      AU.next=AU.ctx.currentTime+.15;AU.timer=setInterval(sched,25);applyVol();}
+    if(AU.ctx.state!=='running')AU.ctx.resume();
+    // an <audio> element playing silence lets iPhone play sound even with the ring/silent switch on
+    if(!silentEl){silentEl=new Audio(silentWav());silentEl.loop=true;silentEl.setAttribute('playsinline','');}
+    const p=silentEl.play();if(p&&p.catch)p.catch(()=>{});
+  }catch(e){}
+  setTimeout(()=>{const h=document.getElementById('soundHint');if(h)h.hidden=!!(AU.ctx&&AU.ctx.state==='running');},300);
+}
+const GAP={pop:.09,punch:.12,firework:.18,bell:.4,fanfare:.5,sparkle:.2,boing:.15,dance:.3,medal:1};
+function sfx(name){
+  if(!AU.ctx||AU.ctx.state!=='running'||CFG.sfxVol<=0)return;
+  const t=AU.ctx.currentTime;if((AU.last[name]||0)+(GAP[name]||.1)>t)return;AU.last[name]=t;const D=AU.sfx;
+  if(name==='pop')tone(D,t,520,.12,.45,'sine',1150);
+  else if(name==='punch'){const p=.85+Math.random()*.3;tone(D,t,130*p,.16,.9,'sine',48*p);noise(D,t,.08,.45,'lowpass',2200);}
+  else if(name==='firework'){noise(D,t,.45,.18,'bandpass',500,3200,2);noise(D,t+.5,.5,.5,'lowpass',1400);for(let i=0;i<9;i++)noise(D,t+.55+Math.random()*.7,.03,.18,'highpass',4500);}
+  else if(name==='bell'){[[1,.28],[2.76,.12],[5.4,.06]].forEach(([k,v])=>tone(D,t,880*k,1.8,v,'sine'));}
+  else if(name==='fanfare'){[72,76,79,84].forEach((m,i)=>tone(D,t+i*.09,mtof(m),.18,.16,'square'));}
+  else if(name==='sparkle'){[84,88,91,96].forEach((m,i)=>tone(D,t+i*.06,mtof(m),.25,.18,'sine'));}
+  else if(name==='boing'){const o=auNode('Oscillator');o.type='sine';o.frequency.setValueAtTime(260,t);o.frequency.exponentialRampToValueAtTime(720,t+.15);o.frequency.exponentialRampToValueAtTime(230,t+.4);const g=auNode('Gain');env(g,t,.4,.4);o.connect(g).connect(D);o.start(t);o.stop(t+.5);}
+  else if(name==='dance'){[72,76,79].forEach((m,i)=>tone(D,t+i*.03,mtof(m),.3,.15,'triangle'));}
+  else if(name==='medal'){[79,84,88,91,96].forEach((m,i)=>tone(D,t+i*.1,mtof(m),.5,.2,'sine'));}
+}
+document.addEventListener('pointerdown',audioUnlock);
+document.addEventListener('touchend',audioUnlock);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&AU.ctx&&AU.ctx.state!=='running')AU.ctx.resume().catch(()=>{});});
 
 // ---------------- background (rasterised once; no text inside) ----------------
 function burstSVG(cx,cy,R0,fn,n,col){let s=`<circle cx="${cx}" cy="${cy}" r="${R0*.9}" fill="${col}" opacity=".2"/>`;
@@ -504,7 +577,7 @@ function showPop(c){
    <text x="54" y="21" font-size="11.5" fill="#d63a8a" font-weight="600">${esc(c.u.name)} มาถึงลานแล้ว!</text>
    <text x="54" y="36" font-size="10" fill="#5a3a5a">คุณได้เป็น <tspan font-weight="600" fill="#3a6fd6">${c.b.name}</tspan></text>
    <text x="54" y="49" font-size="10" fill="#5a3a5a">${c.b.color} ${c.b.eye}</text></g>`;
-  popG.setAttribute('opacity',1);popUntil=T()+3.5;
+  popG.setAttribute('opacity',1);popUntil=T()+3.5;sfx('pop');
 }
 
 // ---------------- fx ----------------
@@ -512,7 +585,7 @@ function floater(txt,x,y,opts={}){const e=mk('text',{x:0,y:0,'font-size':opts.si
 function poof(x,y){const g=mk('g',{},L.fx);g.innerHTML=[0,1,2,3,4,5].map(i=>{const a=i/6*6.28;return`<circle cx="${Math.cos(a)*10}" cy="${Math.sin(a)*6-14}" r="7" fill="#fff" opacity=".85"/>`;}).join('');fx.push({e:g,x,y,life:.5,t:0,kind:'poof'});}
 function firework(){const kinds=[[fish,'#9fd8ff','ปลาทู'],[mouse,'#ffc1d9','หนู'],[gecko,'#b6ff8a','จิ้งจก']];const[fn,col]=kinds[fwIdx%3];fwIdx++;
   if(fx.filter(f=>f.kind==='fw').length>5)return;
-  const x=150+R()*240,y=232+R()*60;const g=mk('g',{},L.fx);g.innerHTML=burstSVG(0,0,24,fn,8,col);fx.push({e:g,x,y,life:1.7,t:0,kind:'fw'});}
+  sfx('firework');const x=150+R()*240,y=232+R()*60;const g=mk('g',{},L.fx);g.innerHTML=burstSVG(0,0,24,fn,8,col);fx.push({e:g,x,y,life:1.7,t:0,kind:'fw'});}
 function pulseTile(k){const r=tileGlow[k];if(!r)return;fx.push({e:r,life:1,t:0,kind:'glow',keep:true});}
 
 // ---------------- gifts ----------------
@@ -522,15 +595,15 @@ function handleGift(u0,g){
   if(!act)return;
   pulseTile(act);
   if(act==='rose'){for(let i=0;i<Math.min(count,5);i++)setTimeout(firework,i*220);const c=cats.get(u.id);if(c){c.lastGiftRound=round;c.tagUntil=T()+4;}return;}
-  if(act==='melee'){signup(u);const c=cats.get(u.id);if(c){c.lastGiftRound=round;c.tagUntil=T()+5;buildTag(c);}return;}
+  if(act==='melee'){sfx('pop');signup(u);const c=cats.get(u.id);if(c){c.lastGiftRound=round;c.tagUntil=T()+5;buildTag(c);}return;}
   const c=enterYard(u,true);if(!c)return;
   c.lastGiftRound=round;c.tagUntil=T()+6;
   if(c.fighting){if(act==='garland')c.garlandUntil=T()+CFG.garlandSec;if(act==='flip')c.flipT=0;buildTag(c);return;}
-  if(act==='garland'){c.garlandUntil=T()+CFG.garlandSec;floater('มาลัยเงิน!',c.x,c.y-50*c.s,{fill:'#ffd96b',bold:true});}
-  else if(act==='flip'){c.flipT=0;}
+  if(act==='garland'){sfx('sparkle');c.garlandUntil=T()+CFG.garlandSec;floater('มาลัยเงิน!',c.x,c.y-50*c.s,{fill:'#ffd96b',bold:true});}
+  else if(act==='flip'){c.flipT=0;sfx('boing');}
   else if(act==='shrine'){const slot=freeSlot(SHRINE_SLOTS,'shrine');setTask(c,{type:'shrine',x:slot[0],y:slot[1],walk:true,dur:CFG.shrineSec,color:'#2a9d8fcc'});}
-  else if(act==='stage'){const[sx,sy]=stagePoint();setTask(c,{type:'stage',x:sx,y:sy,dur:CFG.stageSec,until:T()+CFG.stageSec,color:'#ff4f9acc'});}
-  else if(act==='truck'){const slot=freeSlot(TRUCK_SLOTS,'truck');setTask(c,{type:'truck',x:slot[0],y:slot[1],dur:CFG.truckSec,until:T()+CFG.truckSec,color:'#ff4f9acc'});}
+  else if(act==='stage'){sfx('dance');const[sx,sy]=stagePoint();setTask(c,{type:'stage',x:sx,y:sy,dur:CFG.stageSec,until:T()+CFG.stageSec,color:'#ff4f9acc'});}
+  else if(act==='truck'){sfx('fanfare');const slot=freeSlot(TRUCK_SLOTS,'truck');setTask(c,{type:'truck',x:slot[0],y:slot[1],dur:CFG.truckSec,until:T()+CFG.truckSec,color:'#ff4f9acc'});}
   buildTag(c);
 }
 function freeSlot(slots,type){const used=[...cats.values()].filter(c=>c.task&&c.task.type===type);
@@ -555,7 +628,7 @@ function startFight(){
   melee.cloud=mk('g',{},L.fx);
 }
 function endFight(){
-  melee.phase='end';melee.ends=T()+4;
+  melee.phase='end';melee.ends=T()+4;sfx('medal');
   for(const c of melee.fighters){c.medalUntil=T()+90;c.pose='sit';c.face=1;buildTag(c);}
   if(melee.cloud){melee.cloud.remove();melee.cloud=null;}
   floater('จบรอบ! ทุกตัวได้เหรียญนักชก',270,398,{size:13,fill:'#ffd96b',bold:true,vy:-6,life:3.5});
@@ -681,7 +754,7 @@ function frame(){
         if(now>t.until)endTask(c);
       }else if(t.type==='shrine'){
         c.pose='wai';c.face=1;
-        if(!t.said){t.said=true;floater('สาธุ~',c.x-30,c.y-20,{fill:'#ffd96b',cute:true,size:12,vy:-10,life:2.2});}
+        if(!t.said){t.said=true;sfx('bell');floater('สาธุ~',c.x-30,c.y-20,{fill:'#ffd96b',cute:true,size:12,vy:-10,life:2.2});}
         if(R()<dt*1.5)floater('✦',c.x+(R()*40-20),c.y-40,{fill:'#fff36b',size:9});
         if(now>t.until)endTask(c);
       }
@@ -716,7 +789,7 @@ function frame(){
     for(let i=0;i<f.length;i++)for(let j=i+1;j<f.length;j++){const d=Math.hypot(f[i].x-f[j].x,f[i].y-f[j].y);if(d<bd){bd=d;best=[f[i],f[j]];}}
     if(best&&bd<70){const mx=(best[0].x+best[1].x)/2,my=(best[0].y+best[1].y)/2-22;const j=()=>(R()*4-2).toFixed(1);
       melee.cloud.innerHTML=[[0,0,14],[14,-5,12],[-13,-3,11],[6,8,10],[-6,7,9]].map(([x,y,r])=>`<circle cx="${mx+x+ +j()}" cy="${my+y+ +j()}" r="${r}" fill="#f4ead8" stroke="#d6c4a4"/>`).join('');
-      if(R()<dt*2.2)floater(['ปึก!','ตุ้บ!','นัว~','เมี้ยว!!'][Math.floor(R()*4)],mx+(R()*40-20),my-18,{fill:['#fff36b','#ff9be0','#fff'][Math.floor(R()*3)],cute:true,bold:true,size:13,rot:R()*20-10});
+      if(R()<dt*2.2){sfx('punch');}if(R()<dt*2.2)floater(['ปึก!','ตุ้บ!','นัว~','เมี้ยว!!'][Math.floor(R()*4)],mx+(R()*40-20),my-18,{fill:['#fff36b','#ff9be0','#fff'][Math.floor(R()*3)],cute:true,bold:true,size:13,rot:R()*20-10});
     }else melee.cloud.innerHTML='';
   }
   // dancers
@@ -768,9 +841,10 @@ $('closePanel').addEventListener('click',()=>panel.classList.remove('open'));
 document.querySelectorAll('[data-sim]').forEach(b=>b.addEventListener('click',()=>{demoMode=true;$('demoBadge').hidden=false;sim(b.dataset.sim);}));
 $('clearAll').addEventListener('click',clearAll);
 $('autoDemo').addEventListener('change',e=>{if(e.target.checked){demoMode=true;$('demoBadge').hidden=false;}});
-const sliders=[['maxCats','maxCats',v=>v+' ตัว'],['roundSec','roundSec',v=>v+' วิ'],['meleeWait','meleeWaitMin',v=>v+' นาที'],['meleeMax','meleeMax',v=>v+' ตัว']];
+const sliders=[['musicVol','musicVol',v=>v+'%'],['sfxVol','sfxVol',v=>v+'%'],['maxCats','maxCats',v=>v+' ตัว'],['roundSec','roundSec',v=>v+' วิ'],['meleeWait','meleeWaitMin',v=>v+' นาที'],['meleeMax','meleeMax',v=>v+' ตัว']];
 for(const[id,key,f]of sliders){const el=$(id);el.value=CFG[key];$(id+'V').textContent=f(CFG[key]);
-  el.addEventListener('input',()=>{CFG[key]=+el.value;$(id+'V').textContent=f(CFG[key]);saveCfg();if(key==='roundSec')roundEnds=Math.min(roundEnds,T()+CFG.roundSec);});}
+  el.addEventListener('input',()=>{CFG[key]=+el.value;$(id+'V').textContent=f(CFG[key]);saveCfg();applyVol();if(key==='roundSec')roundEnds=Math.min(roundEnds,T()+CFG.roundSec);});}
+$('musicOn').checked=CFG.musicOn;$('musicOn').addEventListener('change',e=>{CFG.musicOn=e.target.checked;saveCfg();applyVol();});
 // connection (used by the self-hosted version)
 let ws=null,wsTarget='';
 const cleanChan=v=>{let u=String(v||'').trim();const m=u.match(/tiktok\.com\/@([^/?#]+)/i);if(m)u=m[1];return u.replace(/^@/,'').replace(/[^A-Za-z0-9._]/g,'').slice(0,24);};

@@ -134,7 +134,10 @@ async function connectTikTok(room) {
   } catch (e) {
     const msg = String(e?.message || e);
     const offline = /offline|not.*live|UserOffline/i.test(msg) || e?.name === 'UserOfflineError';
-    setStatus(room, 'waiting', offline ? `@${room.name} ยังไม่ได้เริ่มไลฟ์ จะลองใหม่ทุก 30 วินาที` : `ยังเชื่อมต่อ @${room.name} ไม่ได้ จะลองใหม่ใน 30 วินาที (${msg.slice(0, 100)})`);
+    const noRoom = /room id/i.test(msg);
+    setStatus(room, 'waiting', offline ? `@${room.name} ยังไม่ได้เริ่มไลฟ์ จะลองใหม่ทุก 30 วินาที`
+      : noRoom ? `หาห้องไลฟ์ของ @${room.name} ไม่เจอ (ยังไม่ได้ไลฟ์ หรือชื่อช่องไม่ถูก) จะลองใหม่ทุก 30 วินาที`
+      : `ยังเชื่อมต่อ @${room.name} ไม่ได้ จะลองใหม่ใน 30 วินาที (${msg.slice(0, 100)})`);
     scheduleRetry(room, 30);
   }
 }
