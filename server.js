@@ -119,7 +119,7 @@ function scheduleRetry(room, sec) { clearTimeout(room.retryTimer); if (!room.clo
 async function connectTikTok(room) {
   if (room.closed) return;
   try { if (room.conn) await room.conn.disconnect(); } catch {}
-  const conn = new TikTokLiveConnection(room.name, { signApiKey: SIGN_API_KEY, processInitialData: false, enableExtendedGiftInfo: true });
+  const conn = new TikTokLiveConnection(room.name, { signApiKey: SIGN_API_KEY, processInitialData: false, enableExtendedGiftInfo: true, fetchRoomInfoOnConnect: false });
   room.conn = conn;
   conn.on(WebcastEvent.CHAT, d => { try { onChat(room, d); } catch (e) { console.error(e); } });
   conn.on(WebcastEvent.GIFT, d => { try { onGift(room, d); } catch (e) { console.error(e); } });
@@ -135,6 +135,10 @@ async function connectTikTok(room) {
     const msg = String(e?.message || e);
     const offline = /offline|not.*live|UserOffline/i.test(msg) || e?.name === 'UserOfflineError';
     const noRoom = /room id/i.test(msg);
+    if (/requir|api key|unauthori|401|403/i.test(msg) && /sign/i.test(msg)) {
+      setStatus(room, 'waiting', `ต่อไลฟ์ไม่ได้: ต้องใส่ SIGN_API_KEY จาก eulerstream.com ใน Render ก่อน (จะลองใหม่ใน 30 วินาที)`);
+      scheduleRetry(room, 30); return;
+    }
     setStatus(room, 'waiting', offline ? `@${room.name} ยังไม่ได้เริ่มไลฟ์ จะลองใหม่ทุก 30 วินาที`
       : noRoom ? `หาห้องไลฟ์ของ @${room.name} ไม่เจอ (ยังไม่ได้ไลฟ์ หรือชื่อช่องไม่ถูก) จะลองใหม่ทุก 30 วินาที`
       : `ยังเชื่อมต่อ @${room.name} ไม่ได้ จะลองใหม่ใน 30 วินาที (${msg.slice(0, 100)})`);
