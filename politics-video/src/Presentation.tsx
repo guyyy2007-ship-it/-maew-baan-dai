@@ -9,6 +9,7 @@ import {
   useCurrentFrame,
 } from "remotion";
 import { Characters } from "./Characters";
+import { VideoCharacters } from "./VideoCharacters";
 import { PEOPLE, SECTIONS, TIMELINE, TimedScene, VisualId } from "./data";
 import { FONT_STACK } from "./fonts";
 import { C, VisualProps } from "./ui";
@@ -189,9 +190,9 @@ const Progress: React.FC = () => {
   );
 };
 
-export type PresentationProps = { voiceover: string };
+export type PresentationProps = { voiceover: string; characterMode: "video" | "puppet" };
 
-export const Presentation: React.FC<PresentationProps> = ({ voiceover }) => {
+export const Presentation: React.FC<PresentationProps> = ({ voiceover, characterMode }) => {
   return (
     <AbsoluteFill style={{ fontFamily: FONT_STACK, color: "#fff" }}>
       <Background />
@@ -206,7 +207,7 @@ export const Presentation: React.FC<PresentationProps> = ({ voiceover }) => {
           <SceneLayer scene={scene} />
         </Sequence>
       ))}
-      <Characters />
+      {characterMode === "video" ? <VideoCharacters /> : <Characters />}
       <Progress />
       <Subtitles />
       {voiceover ? <Audio src={staticFile(voiceover)} /> : null}

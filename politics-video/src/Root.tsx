@@ -12,7 +12,7 @@ export const RemotionRoot: React.FC = () => {
       width={1920}
       height={1080}
       // Put your AI voice file in public/ and write its name here, e.g. "voice.mp3"
-      defaultProps={{ voiceover: "" }}
+      defaultProps={{ voiceover: "", characterMode: "video" as const }}
     />
   );
 };

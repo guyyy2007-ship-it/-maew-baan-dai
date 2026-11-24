@@ -12,9 +12,9 @@ const NameCard: React.FC<{
   <div
     style={{
       position: "absolute",
-      top: 520,
-      [side]: 24,
-      width: 466,
+      top: 560,
+      [side]: 20,
+      width: 390,
       padding: "26px 30px",
       borderRadius: 26,
       background: "rgba(20,12,50,0.78)",
@@ -25,7 +25,7 @@ const NameCard: React.FC<{
     }}
   >
     <div style={{ fontSize: 24, color: C.muted, fontWeight: 600 }}>ผู้นำเสนอ</div>
-    <div style={{ fontSize: 34, fontWeight: 800, color: "#fff", lineHeight: 1.35, whiteSpace: "nowrap" }}>
+    <div style={{ fontSize: 29, fontWeight: 800, color: "#fff", lineHeight: 1.35, whiteSpace: "nowrap" }}>
       {name}
     </div>
     <div
